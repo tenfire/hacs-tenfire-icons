@@ -1,0 +1,61 @@
+name: Release
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing immutable version tag to release
+        required: true
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish verified tagged distribution
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          TAG: ${{ inputs.tag || github.ref_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const { GH_TOKEN, REPOSITORY, TAG } = process.env;
+          if (REPOSITORY !== 'tenfire/hacs-tenfire-icons' || !/^v\d+\.\d+\.\d+$/.test(TAG)) throw Error('Unexpected repository or tag');
+          const base = `https://api.github.com/repos/${REPOSITORY}`;
+          const headers = { Authorization: `Bearer ${GH_TOKEN}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' };
+          async function get(path) {
+            const r = await fetch(base + path, { headers, redirect: 'error' });
+            if (!r.ok) throw Error(`GitHub GET ${path}: ${r.status}`);
+            return r.json();
+          }
+          (async () => {
+            const ref = await get(`/git/ref/tags/${TAG}`);
+            let object = ref.object;
+            if (object.type === 'tag') object = (await get(`/git/tags/${object.sha}`)).object;
+            if (object.type !== 'commit') throw Error('Tag must resolve to commit');
+            const sha = object.sha;
+            const provenanceFile = await get(`/contents/provenance.json?ref=${sha}`);
+            const provenance = JSON.parse(Buffer.from(provenanceFile.content, 'base64').toString());
+            if (provenance.version !== TAG.slice(1) || !Number.isInteger(provenance.iconCount) || provenance.iconCount < 1) throw Error('Provenance does not match release');
+            // The tagged distribution is the immutable source for HACS downloads.
+            const file = await get(`/contents/dist/hacs-tenfire-icons.js?ref=${sha}`);
+            if (file.type !== 'file' || file.size === 0) throw Error('Missing bundle');
+            const existing = await fetch(`${base}/releases/tags/${TAG}`, { headers, redirect: 'error' });
+            if (existing.ok) {
+              const release = await existing.json();
+              if (release.tag_name !== TAG || release.draft || release.prerelease || !release.published_at) throw Error('Existing release conflicts');
+              console.log(`Release already published: ${release.html_url}`);
+              return;
+            }
+            if (existing.status !== 404) throw Error(`Release lookup: ${existing.status}`);
+            const r = await fetch(`${base}/releases`, { method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' }, redirect: 'error', body: JSON.stringify({ tag_name: TAG, name: TAG, draft: false, prerelease: false, body: `Curated phu icon distribution ${TAG}.\n\nBuilt from pinned upstream data; see provenance.json for source and checksums.\n\nInstall or update through HACS. Do not load alongside the original Custom Brand Icons provider.` }) });
+            if (!r.ok) throw Error(`Create release: ${r.status} ${await r.text()}`);
+            const created = await r.json();
+            const verified = await get(`/releases/tags/${TAG}`);
+            if (verified.id !== created.id || verified.draft || verified.prerelease || !verified.published_at) throw Error('Release verification failed');
+            console.log(`Published ${verified.html_url} at ${sha}`);
+          })().catch(e => { console.error(e.message); process.exit(1); });
+          NODE

@@ -1,0 +1,37 @@
+{
+  "version": "0.1.0",
+  "upstream": {
+    "repository": "elax46/custom-brand-icons",
+    "commit": "5e4ffbe4461b4cdf898edfc43269d3e6f8c1d973",
+    "files": {
+      "custom-brand-icons.js": {
+        "url": "https://raw.githubusercontent.com/elax46/custom-brand-icons/5e4ffbe4461b4cdf898edfc43269d3e6f8c1d973/dist/custom-brand-icons.js",
+        "sha256": "48e82219dd10a22c6f6b016fb001bdd8a422e8e6a31acaed8272641eea9f5610"
+      },
+      "LICENSE": {
+        "url": "https://raw.githubusercontent.com/elax46/custom-brand-icons/5e4ffbe4461b4cdf898edfc43269d3e6f8c1d973/LICENSE",
+        "sha256": "1126322e2cc8d165adc4c792eeb195717de2bcc7b39be1ce77959d78e87ef685"
+      }
+    }
+  },
+  "iconCount": 17,
+  "icons": [
+    "chromecast",
+    "chromecast-alt",
+    "desktop-computer",
+    "google-home",
+    "grill-gas",
+    "home-mini",
+    "hood-extraction",
+    "ikea-blind-closed",
+    "jellyseerr",
+    "light-string",
+    "nest-mini",
+    "nvidia-shield",
+    "plex",
+    "prusa-xl",
+    "raspberry-pi",
+    "tablet",
+    "treadmill"
+  ]
+}
